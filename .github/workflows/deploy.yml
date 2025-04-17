@@ -1,0 +1,72 @@
+# 1. Name: How the workflow appears in the GitHub Actions UI
+name: Deploy static content to Pages
+
+# 2. On: When the workflow should run
+on:
+  # Runs on pushes targeting the 'main' branch
+  push:
+    branches: ["main"] # Change if your default branch is different (e.g., "master")
+
+  # Allows you to run this workflow manually from the Actions tab in GitHub
+  workflow_dispatch:
+
+# 3. Permissions: Grants necessary permissions to the workflow run
+permissions:
+  contents: read      # Allows checking out the code
+  pages: write        # Allows deploying to GitHub Pages
+  id-token: write     # Allows the deployment action to authenticate
+
+# 4. Concurrency: Prevents multiple deployments running simultaneously
+concurrency:
+  group: "pages"
+  cancel-in-progress: false # Don't cancel a deployment once started
+
+# 5. Jobs: Defines the tasks the workflow will perform
+jobs:
+  # 'deploy' is the name of the job (you can call it something else)
+  deploy:
+    # 6. Environment: Links this job to the GitHub Pages deployment environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # Sets the Pages URL after successful deployment
+
+    # 7. Runs-on: Specifies the type of virtual machine to use
+    runs-on: ubuntu-latest # A standard Linux environment
+
+    # 8. Steps: The sequence of actions/commands to execute
+    steps:
+      # Step 1: Check out your repository code
+      - name: Checkout
+        uses: actions/checkout@v4 # Uses a standard GitHub action
+
+      # Step 2: Set up the correct Node.js version
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20   # Use a Node version compatible with your project (check your package.json/vite requirements if needed)
+          cache: 'npm'      # Caches npm dependencies to speed up future runs
+
+      # Step 3: Install project dependencies (like Vite, React)
+      - name: Install dependencies
+        run: npm ci # 'ci' is generally recommended for CI: clean install based on package-lock.json
+
+      # Step 4: Build the React/Vite application
+      - name: Build
+        run: npm run build # Executes the 'build' script from your package.json
+                          # This creates the 'dist' folder with static files
+
+      # Step 5: Configure GitHub Pages settings for the deployment
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # Step 6: Upload the build output ('dist' folder) as an artifact for deployment
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the './dist' directory (Vite's default build output folder)
+          path: './dist'
+
+      # Step 7: Deploy the uploaded artifact to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment # Give this step an ID to reference its outputs (like the URL)
+        uses: actions/deploy-pages@v4
